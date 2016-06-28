@@ -1,0 +1,216 @@
+<html>
+
+<canvas width="1066" height="500" id="tennisCourt"/>
+<script>
+"use strict";
+var canvas;
+var canvasContext;
+var theBall;
+var theLeftPaddle;
+var theRightPaddle;
+var FRAME_RATE = 600;
+var leftScore = 0;
+var rightScore = 0;
+var gameTime;
+
+window.onload = function () {
+  window.setUpTennisCourt();
+  window.theBall = new window.Ball(100,300);
+  window.theLeftPaddle = new window.Paddle(300, 80, "left");
+  window.theRightPaddle = new window.Paddle(300, 80, "right");
+  gameTime = window.setInterval(window.paintAFrame, 1000/FRAME_RATE);
+  window.canvas.addEventListener("mousemove", window.syncPaddleToMouse);
+  window.canvas.addEventListener('dblclick', window.pauseUnPause);
+};
+
+function Ball (x,y) {
+  this.x = x;
+  this.y = y;
+  this.xMovePerFrame = 10;
+  this.yMovePerFrame = 3;
+  this.color = "#cc0";
+  this.radius = 10;
+  canvasContext.fillStyle = this.color;
+  canvasContext.beginPath();
+  canvasContext.arc(this.x, this.y, this.radius, 0, Math.PI*2, true);
+  canvasContext.fill();
+  this.moveAndPaint = function moveAndPaint ()
+    {
+      this.x += this.xMovePerFrame;
+      this.y += this.yMovePerFrame;
+      canvasContext.fillStyle = this.color;
+      canvasContext.beginPath();
+      canvasContext.arc(this.x, this.y, this.radius, 0, Math.PI*2, true);
+      canvasContext.fill();
+    };
+}
+
+function Paddle (center, height, side) {
+    this.center = center;
+    this.height = height;
+    this.top = center - (height/2);
+    this.bottom = center + (height/2);
+    this.side = side;
+    this.margin = 50;
+    this.width = 5;
+    this.paint = function paint () {
+        this.top = this.center - (this.height/2);
+        this.bottom = this.center + (this.height/2);
+        if (this.side === "left"){
+          this.face = this.margin + this.width;
+          canvasContext.fillStyle = "#fc0";
+          canvasContext.fillRect(this.margin, this.top , this.width, this.height);
+        }
+        else if (this.side === "right"){
+          this.face = canvas.width - this.margin - this.width;
+          canvasContext.fillStyle = "red";
+          canvasContext.fillRect(canvas.width - this.margin, this.top , this.width, this.height);
+        }
+        else {
+          window.console.log("invalid paddle");
+        }
+      };
+  }
+function setUpTennisCourt(){
+  canvas = document.getElementById("tennisCourt");
+  canvasContext = canvas.getContext("2d");
+}
+
+function paintAFrame()
+{
+  window.calculateBounces();
+  window.detectScore();
+  window.paintTheCourt(0,0,canvas.width, canvas.height, "#954");
+  window.paintTheScores();
+  window.theBall.moveAndPaint();
+  window.computerOpponentPlay()
+  window.theLeftPaddle.paint();
+  window.theRightPaddle.paint();
+}
+
+function syncPaddleToMouse(heardMouseEvent){
+  var clientRectangle = canvas.getBoundingClientRect();
+  var documentRoot = document.documentElement;
+  var mouseY = heardMouseEvent.clientY - clientRectangle.top - documentRoot.scrollTop;
+  theLeftPaddle.center = mouseY;
+}
+
+function pauseUnPause(){
+  if(gameTime){
+    window.clearInterval(gameTime);
+    gameTime = undefined;
+  }
+  else {
+    gameTime = window.setInterval(window.paintAFrame, 1000/FRAME_RATE);
+  }
+}
+
+function computerOpponentPlay(){
+  if (theRightPaddle.center < theBall.y - (theRightPaddle.height / 3)){
+    theRightPaddle.center += 3;
+  }
+  else if (theRightPaddle.center >= theBall.y + (theRightPaddle.height /3)) {
+    theRightPaddle.center -= 3;
+  }
+}
+
+function calculateBounces(){
+  //bounce off top and bottom
+  if ((theBall.y+20 > canvas.height) || (theBall.y < 0))
+  {
+    theBall.yMovePerFrame = -theBall.yMovePerFrame;
+  }
+  //left paddle hit
+  if ((theBall.x < theLeftPaddle.face) && (theBall.y < theLeftPaddle.bottom) && (theBall.y > theLeftPaddle.top))
+  {
+    theBall.xMovePerFrame = Math.abs(theBall.xMovePerFrame);
+    var angle = (theBall.y - theLeftPaddle.center)/4
+    theBall.yMovePerFrame = angle;
+
+  }
+  //right paddle hit
+  if ((theBall.x > theRightPaddle.face) && (theBall.y < theRightPaddle.bottom) && (theBall.y > theRightPaddle.top))
+  {
+    theBall.xMovePerFrame = -Math.abs(theBall.xMovePerFrame);
+    var angle = (theBall.y - theRightPaddle.center)/4
+    theBall.yMovePerFrame = angle;
+  }
+}
+
+function detectScore()
+{
+  // miss left
+  if (theBall.x < 0)
+  {
+    rightScore += 1 ;
+    window.clearInterval(gameTime);
+    if (rightScore > 10){
+      window.endGame();
+    }
+    else{
+      window.setTimeout(startPlay, 2000);
+      function startPlay(){
+        gameTime = window.setInterval(window.paintAFrame, 1000/FRAME_RATE);
+        theBall.x = canvas.width*0.85;
+        theBall.y = canvas.height/2;
+        theBall.yMovePerFrame = 0;
+      }
+    }
+  }
+  // miss right
+  else if (theBall.x > canvas.width) {
+    leftScore += 1 ;
+    window.clearInterval(gameTime);
+    if (leftScore > 10){
+      window.endGame();
+    }
+    else{
+      window.setTimeout(startPlay, 2000);
+      function startPlay(){
+        gameTime = window.setInterval(window.paintAFrame, 1000/FRAME_RATE);
+        theBall.x = canvas.width*0.15;
+        theBall.y = canvas.height/2;
+        theBall.yMovePerFrame = 0;
+      }
+    }
+  }
+}
+function endGame(){
+  window.clearInterval(gameTime);
+  window.paintTheCourt(0,0,canvas.width, canvas.height, "#954");
+  window.paintTheScores();
+}
+
+function paintTheCourt(x,y,width,height,color){
+  canvasContext.fillStyle = color;
+  canvasContext.fillRect(x,y,width,height);
+  canvasContext. fillStyle = "white";
+  canvasContext.fillRect(x+10, y+10, 4, height-20);
+  canvasContext.fillRect(x+10, y+10, width-21, 4);
+  canvasContext.fillRect(x+width-15, y+10, 4, height-20);
+  canvasContext.fillRect(x+10, height-14, width-21, 4);
+
+  canvasContext.fillRect(x+10, y+80, width-21, 4);
+  canvasContext.fillRect(x+10, y+height-80, width-21, 4);
+  canvasContext.fillRect(x+width/4, y+80, 4, height-160);
+  canvasContext.fillRect(x+width-(width/4), y+80, 4, height-160);
+  canvasContext.fillRect(x+width/4, y+height/2-2, width/2, 4);
+
+  canvasContext. fillStyle = "darkgrey";
+  canvasContext.fillRect(width/2-2, y+10, 4, height-20);
+}
+
+function paintTheScores()
+{
+  window.paintText(leftScore, canvas.width/2-50, 60);
+  window.paintText(rightScore, canvas.width/2+26, 60);
+}
+
+function paintText(textToPaint, x, y){
+  canvasContext.fillStyle = "white";
+  canvasContext.font = "30pt Impact";
+  canvasContext.fillText(textToPaint, x,y);
+}
+</script>
+
+</html>
